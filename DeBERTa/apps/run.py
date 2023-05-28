@@ -460,6 +460,26 @@ def build_argument_parser():
             default=False,
             type=boolean_string,
             help="Whether to export model to ONNX format.")
+  
+  parser.add_argument('--shuffle',
+            default=True,
+            type=boolean_string,
+            help="Send logs to wandb")
+
+  parser.add_argument('--log_wandb',
+            default=False,
+            type=boolean_string,
+            help="Send logs to wandb")
+  
+  parser.add_argument('--wandb_project',
+            default="debertav3",
+            type=str,
+            help="Wandb project name")
+  
+  parser.add_argument('--wandb_name',
+            type=str,
+            help="Wandb run name")
+  
 
   return parser
 

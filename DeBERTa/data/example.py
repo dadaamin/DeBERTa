@@ -31,7 +31,8 @@ class ExampleInstance:
 
 class ExampleSet:
   def __init__(self, pairs):
-    self._data = np.array([pickle.dumps(p) for p in pairs])
+    #self._data = np.array([pickle.dumps(p) for p in pairs])
+    self._data = pairs
     self.total = len(self._data)
 
   def __getitem__(self, idx):
@@ -42,8 +43,8 @@ class ExampleSet:
       idx,rng, ext_params = idx
     else:
       rng,ext_params=None, None
-    content = self._data[idx]
-    example = pickle.loads(content)
+    example = self._data[idx]
+    #example = pickle.loads(content)
     return example
 
   def __len__(self):

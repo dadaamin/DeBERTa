@@ -14,6 +14,9 @@ import pdb
 import os
 import sys
 import csv
+import socket
+hostname = socket.gethostname()
+from tqdm import tqdm
 
 import random
 import torch
@@ -145,14 +148,17 @@ class RTDTask(Task):
     self.mask_gen = NGramMaskGenerator(tokenizer, max_gram=1, keep_prob = 0, mask_prob = 1, max_seq_len = args.max_seq_length)
 
   def train_data(self, max_seq_len=512, **kwargs):
-    data = self.load_data(os.path.join(self.data_dir, 'train.txt'))
+    data = []
+    for i in range(4):
+      data.extend(self.load_data(os.path.join(self.data_dir, f'train0{i}.txt')))
+    #data = self.load_data(os.path.join(self.data_dir, 'train.txt'))
     examples = ExampleSet(data)
     if self.args.num_training_steps is None:
       dataset_size = len(examples)
     else:
       dataset_size = self.args.num_training_steps*self.args.train_batch_size
     return DynamicDataset(examples, feature_fn = self.get_feature_fn(max_seq_len=max_seq_len, mask_gen=self.mask_gen), \
-dataset_size = dataset_size, shuffle=True, **kwargs)
+dataset_size = dataset_size, shuffle=self.args.shuffle, **kwargs)
 
   def get_labels(self):
     return list(self.tokenizer.vocab.values())
@@ -197,10 +203,10 @@ dataset_size = dataset_size, shuffle=True, **kwargs)
   def load_data(self, path):
     examples = []
     with open(path, encoding='utf-8') as fs:
-      for l in fs:
+      for l in tqdm(fs, desc=f"{hostname}: Loading dataset from {path}"):
         if len(l) > 1:
-          example = ExampleInstance(segments=[l])
-          examples.append(example)
+          #example = ExampleInstance(segments=[l])
+          examples.append(l)
     return examples
 
   def get_feature_fn(self, max_seq_len = 512, mask_gen = None):
@@ -214,7 +220,8 @@ dataset_size = dataset_size, shuffle=True, **kwargs)
       rng = random
     max_num_tokens = max_seq_len - 2
 
-    segments = [ example.segments[0].strip().split() ]
+    #segments = [ example.segments[0].strip().split() ]
+    segments = [ example.strip().split() ]
     segments = _truncate_segments(segments, max_num_tokens, rng)
     _tokens = ['[CLS]'] + segments[0] + ['[SEP]']
     if mask_generator:
@@ -262,9 +269,9 @@ dataset_size = dataset_size, shuffle=True, **kwargs)
           fs.write(model.config.generator.to_json_string() + '\n')
         shutil.copy(args.vocab_path, gen_args.checkpoint_dir)
         loss_fn = self.get_decoupled_loss_fn(args, model, data_fn, device, args.num_training_steps)
-        trainer = DistributedTrainer(gen_args, gen_args.output_dir, model.generator, device, data_fn, loss_fn = loss_fn, eval_fn = eval_fn, dump_interval = args.dump_interval, name='G')
+        trainer = DistributedTrainer(gen_args, gen_args.output_dir, model.generator, device, data_fn, loss_fn = loss_fn, eval_fn = eval_fn, dump_interval = args.dump_interval, name='G', log_wandb=args.log_wandb, wandb_project=args.wandb_project, wandb_name=args.wandb_name)
       else:
-        trainer = DistributedTrainer(args, args.output_dir, model, device, data_fn, loss_fn = loss_fn, eval_fn = eval_fn, dump_interval = args.dump_interval)
+        trainer = DistributedTrainer(args, args.output_dir, model, device, data_fn, loss_fn = loss_fn, eval_fn = eval_fn, dump_interval = args.dump_interval, log_wandb=args.log_wandb, wandb_project=args.wandb_project, wandb_name=args.wandb_name)
       trainer.train()
     return train_fn
 
