@@ -491,6 +491,7 @@ if __name__ == "__main__":
   os.makedirs(args.output_dir, exist_ok=True)
   logger = set_logger(args.task_name, os.path.join(args.output_dir, 'training_{}.log'.format(args.task_name)))
   logger.info(args)
+  logger.info("Forked version")
   try:
     main(args)
   except Exception as ex:
