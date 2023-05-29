@@ -73,55 +73,9 @@ def _get_world_size(args):
       n_gpu = get_ngpu()
     return n_gpu * world_size
 
-def initialize_distributed(args, join=True):
-    args.world_size = int(os.getenv("WORLD_SIZE", '1'))
-    args.rank = int(os.getenv('RANK', '0'))
-    args.master_ip = os.getenv('MASTER_ADDR', 'localhost')
-    args.master_port = os.getenv('MASTER_PORT', '17006')
-  
-    if args.world_size == 1:
-      args.rank = 0
-      args.master_ip = 'localhost'
-
-    if not hasattr(args, 'n_gpu') or args.n_gpu is None:
-      args.n_gpu = get_ngpu()
-
-    args.node_rank = args.rank
-    args.world_size = args.n_gpu * args.world_size
-    seed = args.seed
-    is_child = False
-    if args.world_size>1:
-      children = []
-      for r in range(args.n_gpu):
-        args.rank = r + args.n_gpu*args.node_rank
-        args.local_rank = r
-        args.seed = seed + args.rank
-        child = os.fork()
-        if child>0:
-          children.append(child)
-        else:
-          signal.signal(signal.SIGINT, signal.SIG_IGN)
-          is_child = True
-          break
-    else:
-      is_child = True
-
-    if is_child:
-      return _setup_distributed_group(args)
-    else:
-      if join:
-        try:
-          for c in children:
-            cid, ccode = os.waitpid(0,0)
-            logger.debug(f'Worker {c} done with code {ccode}')
-            if ccode != 0:
-              logger.error(f'Worker {c} : {cid} failed with code {ccode}')
-              kill_children()
-              raise ValueError(f'Job failed. {cid}:{ccode}')
-        except (KeyboardInterrupt, SystemExit):
-          logger.warning('Keybord interrupt by user. Terminate all processes')
-          kill_children(None)
-      return children
+def initialize_distributed():
+    torch.distributed.init_process_group(backend="nccl")
+    torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
 
 def test_dist_launch():
   def test_functions(args):

@@ -33,7 +33,8 @@ from ...data.example import _truncate_segments
 from ...data.example import *
 from ...deberta import NNModule
 from ...utils import get_logger,boolean_string
-from ...training import DistributedTrainer, batch_to
+from ...training import batch_to
+from ...training.trainer_ddp import DistributedTrainer
 from ...data import DistributedBatchSampler, SequentialSampler, BatchSampler, AsyncDataLoader
 from ..models import MaskedLanguageModel,ReplacedTokenDetectionModel
 from .mlm_task import NGramMaskGenerator
@@ -293,7 +294,7 @@ dataset_size = dataset_size, shuffle=self.args.shuffle, **kwargs)
         nb_eval_steps, nb_eval_examples = 0, 0
         predicts=[]
         labels=[]
-        for batch in tqdm(AsyncDataLoader(eval_dataloader), ncols=80, desc='Evaluating: {}'.format(prefix), disable=no_tqdm):
+        for batch in tqdm(eval_dataloader, ncols=80, desc='Evaluating: {}'.format(prefix), disable=no_tqdm):
           batch = batch_to(batch, device)
           with torch.no_grad():
             output = model(**batch)

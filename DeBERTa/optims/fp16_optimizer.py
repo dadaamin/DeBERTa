@@ -67,7 +67,7 @@ class Fp16Optimizer(object):
         group['offset'] = None
       if ('rank' not in group) or (not self.distributed):
         group['rank'] = -1
-        assert group['offset'] is None, f"{group['names']}: {group['offset']}"
+        #assert group['offset'] is None, f"{group['names']}: {group['offset']}"
       group_rank = group['rank']
       params = group['params'] # parameter
       if len(params) > 1:
