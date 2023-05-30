@@ -20,6 +20,7 @@ from ..data import BatchSampler, DistributedBatchSampler,RandomSampler,Sequentia
 from ..utils import get_logger
 logger = get_logger()
 from torch.nn.parallel import DistributedDataParallel as DDP
+import wandb
 
 
 from .dist_launcher import get_ngpu
@@ -37,7 +38,7 @@ def set_random_seed(seed, cpu_only=False):
     torch.cuda.manual_seed_all(seed)
 
 class TrainerState:
-  def __init__(self, training_steps, name=None):
+  def __init__(self, training_steps, name=None, log_wandb=False, wandb_project=None, wandb_name=None):
     self.__dict__ = defaultdict(float)
     self.loss = 0.0
     self.examples = 0
@@ -51,6 +52,15 @@ class TrainerState:
     self.best_metric = -1e9
     self.name = name
     self.run_id = None
+    self.log_wandb = log_wandb
+    if log_wandb and int(os.environ["RANK"]) == 0:
+      self.run = run = wandb.init(
+        # Set the project where this run will be logged
+        project=wandb_project,
+        name=wandb_name        
+      )
+
+
 
   def update_step(self, loss, examples, loss_scale):
     self.examples += examples
@@ -71,6 +81,8 @@ class TrainerState:
       tag = None
     logger.info('{}[{:0.1f}%][{:0.2f}h] Steps={}, loss={}, examples={}, loss_scale={:0.1f}, {:0.1f}s'.format(tag, 100*self.steps/self.num_training_steps, \
       (self.num_training_steps - self.steps)*(start-end)/((self.steps-self._last_report_step)*3600), self.steps, self.loss/self.steps, self.examples, self.loss_scale, end-start))
+    if self.log_wandb and int(os.environ["RANK"]) == 0:
+      wandb.log({f"{tag}/loss": self.loss/self.steps, f"{tag}/loss_scale": self.loss_scale}, step=self.steps)
     self._last_report_time = end
     self._last_report_step = self.steps
 
@@ -101,7 +113,7 @@ class DistributedTrainer:
 
     self.output_dir = output_dir
     self.init_fn = init_fn
-    self.trainer_state = TrainerState(self.training_steps, name = name)
+    self.trainer_state = TrainerState(self.training_steps, name = name, log_wandb=args.log_wandb, wandb_project=args.wandb_project, wandb_name=args.wandb_name)
     self.dump_interval = dump_interval
 
     self.model = model.to(int(os.environ["LOCAL_RANK"]))
